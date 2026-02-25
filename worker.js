@@ -92,7 +92,7 @@ export default {
 
             } else {
                 // 5. Если игрока нет — создаем новую запись
-                await fetch(`${NOTION_URL}/pages`, {
+                const createResponse = await fetch(`${NOTION_URL}/pages`, {
                     method: 'POST',
                     headers: headers,
                     body: JSON.stringify({
@@ -111,6 +111,11 @@ export default {
                         }
                     })
                 });
+
+                if (!createResponse.ok) {
+                    const errorText = await createResponse.text();
+                    return new Response(JSON.stringify({ error: "Notion API Error", details: errorText }), { status: 500, headers: corsHeaders });
+                }
 
                 return new Response(JSON.stringify({ status: "created" }), { status: 201, headers: { ...corsHeaders, "Content-Type": "application/json" } });
             }
