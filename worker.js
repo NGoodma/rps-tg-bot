@@ -39,7 +39,6 @@ export default {
 
             const now = new Date().toISOString();
 
-            // 3. Ищем пользователя в базе данных Notion по Telegram ID
             const queryResponse = await fetch(`${NOTION_URL}/databases/${DATABASE_ID}/query`, {
                 method: 'POST',
                 headers: headers,
@@ -53,7 +52,14 @@ export default {
                 })
             });
 
+            if (!queryResponse.ok) {
+                const queryErr = await queryResponse.text();
+                console.error("❌ Notion Query Error:", queryErr);
+                return new Response(JSON.stringify({ error: "Query Error", details: queryErr }), { status: 500, headers: corsHeaders });
+            }
+
             const queryData = await queryResponse.json();
+            console.log("✅ Query Success. Found records:", queryData.results?.length);
 
             let isWin = result === 'win' ? 1 : 0;
             let isLose = result === 'lose' ? 1 : 0;
@@ -114,9 +120,11 @@ export default {
 
                 if (!createResponse.ok) {
                     const errorText = await createResponse.text();
+                    console.error("❌ Notion Create Error:", errorText);
                     return new Response(JSON.stringify({ error: "Notion API Error", details: errorText }), { status: 500, headers: corsHeaders });
                 }
 
+                console.log("✅ Custom record created successfully!");
                 return new Response(JSON.stringify({ status: "created" }), { status: 201, headers: { ...corsHeaders, "Content-Type": "application/json" } });
             }
 
