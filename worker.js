@@ -1,6 +1,6 @@
 export default {
     async fetch(request, env, ctx) {
-        // 1. Handle CORS (чтобы браузер мог делать запросы)
+        // 1. Handle CORS 
         const corsHeaders = {
             "Access-Control-Allow-Origin": "*",
             "Access-Control-Allow-Methods": "POST, OPTIONS",
@@ -66,10 +66,12 @@ export default {
             let isLose = result === 'lose' ? 1 : 0;
             let isDraw = result === 'draw' ? 1 : 0;
 
+            let finalPageId = null;
+
             // 4. Если игрок уже есть в базе — обновляем его запись
             if (queryData.results && queryData.results.length > 0) {
                 const page = queryData.results[0];
-                const pageId = page.id;
+                finalPageId = page.id;
 
                 // Текущие значения
                 const props = page.properties;
@@ -79,7 +81,7 @@ export default {
                 const draws = (props["Draws"]?.number || 0) + isDraw;
 
                 // Отправляем PATCH запрос на обновление
-                await fetch(`${NOTION_URL}/pages/${pageId}`, {
+                await fetch(`${NOTION_URL}/pages/${finalPageId}`, {
                     method: 'PATCH',
                     headers: headers,
                     body: JSON.stringify({
@@ -94,21 +96,6 @@ export default {
                         }
                     })
                 });
-
-                // Отправляем уведомление в Telegram
-                const choiceMap = { 'rock': 'Камень ✊', 'scissors': 'Ножницы ✌️', 'paper': 'Бумага ✋' };
-                const choiceRu = choiceMap[choice] || choice;
-                const resultText = result === 'win' ? 'Вы выиграли! 🎉' : result === 'lose' ? 'Вы проиграли 😢' : 'Ничья 🤝';
-
-                const tgMessage = `🎮 <b>${resultText}</b>\nВаш выбор: ${choiceRu}\n\n📊 <b>Ваша статистика:</b>\nИгр: ${total}\nПобед: ${wins}\nПоражений: ${losses}\nНичьих: ${draws}`;
-
-                await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ chat_id: telegramId, text: tgMessage, parse_mode: 'HTML' })
-                });
-
-                return new Response(JSON.stringify({ status: "updated" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
             } else {
                 // 5. Если игрока нет — создаем новую запись
@@ -138,24 +125,64 @@ export default {
                     return new Response(JSON.stringify({ error: "Notion API Error", details: errorText }), { status: 500, headers: corsHeaders });
                 }
 
-                // Отправляем уведомление в Telegram
-                const choiceMap = { 'rock': 'Камень ✊', 'scissors': 'Ножницы ✌️', 'paper': 'Бумага ✋' };
-                const choiceRu = choiceMap[choice] || choice;
-                const resultText = result === 'win' ? 'Вы выиграли! 🎉' : result === 'lose' ? 'Вы проиграли 😢' : 'Ничья 🤝';
-
-                const tgMessage = `👋 <b>Добро пожаловать, ${name || 'Игрок'}!</b>\n\n🎮 <b>${resultText}</b>\nВаш выбор: ${choiceRu}\n\n📊 <b>Ваша статистика:</b>\nИгр: 1\nПобед: ${isWin}\nПоражений: ${isLose}\nНичьих: ${isDraw}`;
-
-                await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ chat_id: telegramId, text: tgMessage, parse_mode: 'HTML' })
-                });
-
+                const newPageData = await createResponse.json();
+                finalPageId = newPageData.id;
                 console.log("✅ Custom record created successfully!");
-                return new Response(JSON.stringify({ status: "created" }), { status: 201, headers: { ...corsHeaders, "Content-Type": "application/json" } });
             }
 
+            // 6. Отложенное уведомление (Debounce 30 секунд), и чтение данных ИЗ NOTION
+            ctx.waitUntil((async () => {
+                // Ждём 30 секунд. Если за это время игрок сыграет ещё, Cloudflare запустит ещё одну функцию
+                // и обновит Notion на новое значение `Last Active`.
+                await new Promise(resolve => setTimeout(resolve, 30000));
+                
+                // Делаем GET-запрос в Notion
+                const getResponse = await fetch(`${NOTION_URL}/pages/${finalPageId}`, {
+                    method: 'GET',
+                    headers: headers
+                });
+                
+                if (getResponse.ok) {
+                    const pageData = await getResponse.json();
+                    const latestUpdate = pageData.properties["Last Active"]?.date?.start;
+                    
+                    // Если `now` (время ТЕКУЩЕГО запроса) совпадает с `latestUpdate` из Notion
+                    // Значит, после этого запроса никто больше не играл в течение 30 секунд!
+                    // Отправляем финальное сообщение.
+                    if (latestUpdate === now) {
+                         const props = pageData.properties;
+                         const total = props["Total Games"]?.number || 0;
+                         const wins = props["Wins"]?.number || 0;
+                         const losses = props["Losses"]?.number || 0;
+                         const draws = props["Draws"]?.number || 0;
+                         const latestChoice = props["Last Choice"]?.select?.name || "Неизвестно";
+                         
+                         const choiceMap = { 'rock': 'Камень ✊', 'scissors': 'Ножницы ✌️', 'paper': 'Бумага ✋' };
+                         const choiceRu = choiceMap[latestChoice] || latestChoice;
+                         
+                         // Приветственное сообщение или завершение сессии
+                         let resultText = '';
+                         if (total === 1) {
+                             resultText = `👋 <b>Добро пожаловать, ${name || 'Игрок'}!</b> Первая игра сыграна.`;
+                         } else {
+                             resultText = `🎮 <b>Игровая сессия завершена!</b>`;
+                         }
+
+                         const tgMessage = `${resultText}\nВаш последний выбор: ${choiceRu}\n\n📊 <b>Финальная статистика из Notion:</b>\nИгр: ${total}\nПобед: ${wins}\nПоражений: ${losses}\nНичьих: ${draws}`;
+                         
+                         await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ chat_id: telegramId, text: tgMessage, parse_mode: 'HTML' })
+                         });
+                    }
+                }
+            })());
+
+            return new Response(JSON.stringify({ status: "success" }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
         } catch (e) {
+            console.error(e);
             return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: corsHeaders });
         }
     },
