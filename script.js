@@ -7,6 +7,7 @@ tg.ready();
 let playerScore = 0;
 let botScore = 0;
 const choices = ['rock', 'scissors', 'paper'];
+const API_URL = "https://api.310596.xyz"; // ЗАДАЙТЕ СВОЙ ДОМЕН ЗДЕСЬ
 const emojies = {
     'rock': '✊',
     'scissors': '✌️',
@@ -153,19 +154,19 @@ function playRound(playerChoice) {
 
 function determineWinner(player, bot) {
     if (player === bot) {
-        handleDraw();
+        handleDraw(player);
     } else if (
         (player === 'rock' && bot === 'scissors') ||
         (player === 'scissors' && bot === 'paper') ||
         (player === 'paper' && bot === 'rock')
     ) {
-        handleWin();
+        handleWin(player);
     } else {
-        handleLose();
+        handleLose(player);
     }
 }
 
-function handleWin() {
+function handleWin(playerChoice) {
     playerScore++;
     playerScoreEl.textContent = playerScore;
     statusText.textContent = getRandomPhrase(botLosePhrases);
@@ -175,9 +176,10 @@ function handleWin() {
     botDisplay.classList.add('lose-anim');
 
     if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+    sendStatsToCRM(playerChoice, 'win');
 }
 
-function handleLose() {
+function handleLose(playerChoice) {
     botScore++;
     botScoreEl.textContent = botScore;
     statusText.textContent = getRandomPhrase(botWinPhrases);
@@ -187,9 +189,10 @@ function handleLose() {
     playerDisplay.classList.add('lose-anim');
 
     if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
+    sendStatsToCRM(playerChoice, 'lose');
 }
 
-function handleDraw() {
+function handleDraw(playerChoice) {
     statusText.textContent = getRandomPhrase(botDrawPhrases);
     statusText.style.color = 'var(--draw-color)';
 
@@ -197,4 +200,27 @@ function handleDraw() {
     botDisplay.classList.add('draw-anim');
 
     if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('rigid');
+    sendStatsToCRM(playerChoice, 'draw');
+}
+
+// Отправка данных на наш Cloudflare Worker
+function sendStatsToCRM(choice, result) {
+    // Безопасно получаем данные пользователя из Telegram SDK
+    const user = tg.initDataUnsafe?.user;
+    if (!user) return; // Если запустили не внутри Telegram или нет данных
+
+    fetch(API_URL, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            telegramId: user.id,
+            name: user.username || user.first_name || "Unknown",
+            choice: choice,
+            result: result
+        })
+    }).catch(err => {
+        console.error("Ошибка при отправке в CRM:", err);
+    });
 }
