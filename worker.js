@@ -27,6 +27,7 @@ export default {
             // API ключи Notion берем из переменных окружения Cloudflare
             const NOTION_API_KEY = env.NOTION_API_KEY;
             const DATABASE_ID = env.NOTION_DATABASE_ID;
+            const TELEGRAM_BOT_TOKEN = env.TELEGRAM_BOT_TOKEN || "8739297942:AAFKFXXe-Z5fc6f9AGLJ-DLgE3mAotAUoAI";
 
             const NOTION_VERSION = "2022-06-28";
             const NOTION_URL = "https://api.notion.com/v1";
@@ -94,6 +95,19 @@ export default {
                     })
                 });
 
+                // Отправляем уведомление в Telegram
+                const choiceMap = { 'rock': 'Камень ✊', 'scissors': 'Ножницы ✌️', 'paper': 'Бумага ✋' };
+                const choiceRu = choiceMap[choice] || choice;
+                const resultText = result === 'win' ? 'Вы выиграли! 🎉' : result === 'lose' ? 'Вы проиграли 😢' : 'Ничья 🤝';
+
+                const tgMessage = `🎮 <b>${resultText}</b>\nВаш выбор: ${choiceRu}\n\n📊 <b>Ваша статистика:</b>\nИгр: ${total}\nПобед: ${wins}\nПоражений: ${losses}\nНичьих: ${draws}`;
+
+                await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ chat_id: telegramId, text: tgMessage, parse_mode: 'HTML' })
+                });
+
                 return new Response(JSON.stringify({ status: "updated" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
             } else {
@@ -123,6 +137,19 @@ export default {
                     console.error("❌ Notion Create Error:", errorText);
                     return new Response(JSON.stringify({ error: "Notion API Error", details: errorText }), { status: 500, headers: corsHeaders });
                 }
+
+                // Отправляем уведомление в Telegram
+                const choiceMap = { 'rock': 'Камень ✊', 'scissors': 'Ножницы ✌️', 'paper': 'Бумага ✋' };
+                const choiceRu = choiceMap[choice] || choice;
+                const resultText = result === 'win' ? 'Вы выиграли! 🎉' : result === 'lose' ? 'Вы проиграли 😢' : 'Ничья 🤝';
+
+                const tgMessage = `👋 <b>Добро пожаловать, ${name || 'Игрок'}!</b>\n\n🎮 <b>${resultText}</b>\nВаш выбор: ${choiceRu}\n\n📊 <b>Ваша статистика:</b>\nИгр: 1\nПобед: ${isWin}\nПоражений: ${isLose}\nНичьих: ${isDraw}`;
+
+                await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ chat_id: telegramId, text: tgMessage, parse_mode: 'HTML' })
+                });
 
                 console.log("✅ Custom record created successfully!");
                 return new Response(JSON.stringify({ status: "created" }), { status: 201, headers: { ...corsHeaders, "Content-Type": "application/json" } });
