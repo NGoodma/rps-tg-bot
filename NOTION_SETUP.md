@@ -15,8 +15,9 @@
    - `Last Active` (тип: **Date**)
    - `Updated At` (тип: **Date**)
 2. Перейдите по адресу: [https://www.notion.so/my-integrations](https://www.notion.so/my-integrations)
-3. Создайте новую интеграцию (назовите её, например, "RPS Bot CRM").
-4. Скопируйте **Internal Integration Secret** (это ваш `NOTION_API_KEY`).
+4. Нажмите кнопку **New integration** с левой стороны.
+5. **ОЧЕНЬ ВАЖНО**: Убедитесь, что тип интеграции (Integration type) установлен как **Internal** (Внутренняя), а не Public. По умолчанию она создается как Internal. Вам нужно только выбрать Workspace и ввести имя (например, "RPS Bot API").
+   - *Если система просит от вас ссылки на Privacy Policy, Terms of Use и OAuth Domains (как на вашем скриншоте) — значит, вы случайно выбрали Public (Oauth) вариант. Вернитесь назад и создайте обычную Internal интеграцию.*
 5. Откройте вашу базу данных в Notion, нажмите кнопку `...` в правом верхнем углу, выберите **"Add connections"** (или "Connect to") и добавьте созданную вами интеграцию.
 6. Вытащите ID вашей базы данных. Он находится в URL-адресе:
    `https://www.notion.so/YOUR_WORKSPACE_NAME/`**`1234567890abcdef1234567890abcdef`**`?v=...`
