@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Камень, Ножницы, Бумага</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <header>
+            <h1>Игра с ботом</h1>
+            <div class="score-board">
+                <div class="score-box">
+                    <span class="score-label">ВЫ</span>
+                    <span id="player-score" class="score-value">0</span>
+                </div>
+                <div class="score-box">
+                    <span class="score-label">БОТ</span>
+                    <span id="bot-score" class="score-value">0</span>
+                </div>
+            </div>
+        </header>
+
+        <main>
+            <div class="battle-arena">
+                <div id="bot-choice-display" class="choice-display bot-display">🤖</div>
+                <div class="vs-badge">VS</div>
+                <div id="player-choice-display" class="choice-display player-display">👤</div>
+            </div>
+
+            <div id="status-text" class="status-text">Сделайте свой выбор!</div>
+            
+            <div class="controls">
+                <button class="choice-btn" data-choice="rock">
+                    <span class="emoji">✊</span>
+                    <span class="btn-text">Камень</span>
+                </button>
+                <button class="choice-btn" data-choice="scissors">
+                    <span class="emoji">✌️</span>
+                    <span class="btn-text">Ножницы</span>
+                </button>
+                <button class="choice-btn" data-choice="paper">
+                    <span class="emoji">✋</span>
+                    <span class="btn-text">Бумага</span>
+                </button>
+            </div>
+        </main>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
