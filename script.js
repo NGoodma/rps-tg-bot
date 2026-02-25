@@ -203,24 +203,53 @@ function handleDraw(playerChoice) {
     sendStatsToCRM(playerChoice, 'draw');
 }
 
+// Очередь запросов для предотвращения race condition в Notion
+let isSendingStats = false;
+const statsQueue = [];
+
+async function processStatsQueue() {
+    if (isSendingStats || statsQueue.length === 0) return;
+
+    isSendingStats = true;
+    const { choice, result } = statsQueue.shift();
+
+    const user = tg.initDataUnsafe?.user;
+    if (!user) {
+        isSendingStats = false;
+        return; // Если запустили не внутри Telegram или нет данных
+    }
+
+    try {
+        await fetch(API_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                telegramId: user.id,
+                name: user.username || user.first_name || "Unknown",
+                choice: choice,
+                result: result
+            })
+        });
+
+        // После успешной отправки даем Notion 1 секунду на индексацию,
+        // чтобы следующий запрос гарантированно нашел созданную запись, а не создал дубликат.
+        await new Promise(resolve => setTimeout(resolve, 1000));
+    } catch (err) {
+        console.error("Ошибка при отправке в CRM:", err);
+    } finally {
+        isSendingStats = false;
+        // Если в очереди есть еще игры, обрабатываем их
+        if (statsQueue.length > 0) {
+            processStatsQueue();
+        }
+    }
+}
+
 // Отправка данных на наш Cloudflare Worker
 function sendStatsToCRM(choice, result) {
-    // Безопасно получаем данные пользователя из Telegram SDK
-    const user = tg.initDataUnsafe?.user;
-    if (!user) return; // Если запустили не внутри Telegram или нет данных
-
-    fetch(API_URL, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            telegramId: user.id,
-            name: user.username || user.first_name || "Unknown",
-            choice: choice,
-            result: result
-        })
-    }).catch(err => {
-        console.error("Ошибка при отправке в CRM:", err);
-    });
+    // Кладем результат в очередь и запускаем обработку
+    statsQueue.push({ choice, result });
+    processStatsQueue();
 }
