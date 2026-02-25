@@ -7,7 +7,7 @@ tg.ready();
 let playerScore = 0;
 let botScore = 0;
 const choices = ['rock', 'scissors', 'paper'];
-const API_URL = "https://api.310596.xyz"; // ЗАДАЙТЕ СВОЙ ДОМЕН ЗДЕСЬ
+const API_URL = "https://rps.310596.xyz"; // ДОМЕН ВОРКЕРА CLOUDFLARE
 const emojies = {
     'rock': '✊',
     'scissors': '✌️',
