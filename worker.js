@@ -135,47 +135,59 @@ export default {
                 // Ждём 30 секунд. Если за это время игрок сыграет ещё, Cloudflare запустит ещё одну функцию
                 // и обновит Notion на новое значение `Last Active`.
                 await new Promise(resolve => setTimeout(resolve, 30000));
-                
+
                 // Делаем GET-запрос в Notion
                 const getResponse = await fetch(`${NOTION_URL}/pages/${finalPageId}`, {
                     method: 'GET',
                     headers: headers
                 });
-                
+
                 if (getResponse.ok) {
                     const pageData = await getResponse.json();
                     const latestUpdate = pageData.properties["Last Active"]?.date?.start;
-                    
-                    // Если `now` (время ТЕКУЩЕГО запроса) совпадает с `latestUpdate` из Notion
-                    // Значит, после этого запроса никто больше не играл в течение 30 секунд!
-                    // Отправляем финальное сообщение.
-                    if (latestUpdate === now) {
-                         const props = pageData.properties;
-                         const total = props["Total Games"]?.number || 0;
-                         const wins = props["Wins"]?.number || 0;
-                         const losses = props["Losses"]?.number || 0;
-                         const draws = props["Draws"]?.number || 0;
-                         const latestChoice = props["Last Choice"]?.select?.name || "Неизвестно";
-                         
-                         const choiceMap = { 'rock': 'Камень ✊', 'scissors': 'Ножницы ✌️', 'paper': 'Бумага ✋' };
-                         const choiceRu = choiceMap[latestChoice] || latestChoice;
-                         
-                         // Приветственное сообщение или завершение сессии
-                         let resultText = '';
-                         if (total === 1) {
-                             resultText = `👋 <b>Добро пожаловать, ${name || 'Игрок'}!</b> Первая игра сыграна.`;
-                         } else {
-                             resultText = `🎮 <b>Игровая сессия завершена!</b>`;
-                         }
 
-                         const tgMessage = `${resultText}\nВаш последний выбор: ${choiceRu}\n\n📊 <b>Финальная статистика из Notion:</b>\nИгр: ${total}\nПобед: ${wins}\nПоражений: ${losses}\nНичьих: ${draws}`;
-                         
-                         await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+                    // Сравниваем даты через Timestamp, так как Notion может обрезать миллисекунды или менять формат
+                    const latestTime = new Date(latestUpdate).getTime();
+                    const nowTime = new Date(now).getTime();
+
+                    console.log(`[Timer 30s] Woke up! now=${nowTime}, latest=${latestTime}`);
+
+                    // Если `now` совпадает с `latestUpdate` (в пределах 1-2 секунд)
+                    if (Math.abs(latestTime - nowTime) < 2000) {
+                        const props = pageData.properties;
+                        const total = props["Total Games"]?.number || 0;
+                        const wins = props["Wins"]?.number || 0;
+                        const losses = props["Losses"]?.number || 0;
+                        const draws = props["Draws"]?.number || 0;
+                        const latestChoice = props["Last Choice"]?.select?.name || "Неизвестно";
+
+                        const choiceMap = { 'rock': 'Камень ✊', 'scissors': 'Ножницы ✌️', 'paper': 'Бумага ✋' };
+                        const choiceRu = choiceMap[latestChoice] || latestChoice;
+
+                        // Приветственное сообщение или завершение сессии
+                        let resultText = '';
+                        if (total === 1) {
+                            resultText = `👋 <b>Добро пожаловать, ${name || 'Игрок'}!</b> Первая игра сыграна.`;
+                        } else {
+                            resultText = `🎮 <b>Игровая сессия завершена!</b>`;
+                        }
+
+                        const tgMessage = `${resultText}\nВаш последний выбор: ${choiceRu}\n\n📊 <b>Финальная статистика из Notion:</b>\nИгр: ${total}\nПобед: ${wins}\nПоражений: ${losses}\nНичьих: ${draws}`;
+
+                        console.log("[Timer 30s] Sending to Telegram...");
+                        const tgRes = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ chat_id: telegramId, text: tgMessage, parse_mode: 'HTML' })
-                         });
+                        });
+
+                        const tgText = await tgRes.text();
+                        console.log(`[Timer 30s] Telegram response: ${tgRes.status} ${tgText}`);
+                    } else {
+                        console.log("[Timer 30s] Skipping Telegram send, another game was played after this one.");
                     }
+                } else {
+                    console.log("[Timer 30s] Failed to fetch from Notion:", await getResponse.text());
                 }
             })());
 
