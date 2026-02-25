@@ -134,7 +134,7 @@ export default {
             ctx.waitUntil((async () => {
                 // Ждём 30 секунд. Если за это время игрок сыграет ещё, Cloudflare запустит ещё одну функцию
                 // и обновит Notion на новое значение `Last Active`.
-                await new Promise(resolve => setTimeout(resolve, 30000));
+                await new Promise(resolve => setTimeout(resolve, 15000));
 
                 // Делаем GET-запрос в Notion
                 const getResponse = await fetch(`${NOTION_URL}/pages/${finalPageId}`, {
@@ -150,7 +150,7 @@ export default {
                     const latestTime = new Date(latestUpdate).getTime();
                     const nowTime = new Date(now).getTime();
 
-                    console.log(`[Timer 30s] Woke up! now=${nowTime}, latest=${latestTime}`);
+                    console.log(`[Timer 15s] Woke up! now=${nowTime}, latest=${latestTime}`);
 
                     // Если `now` совпадает с `latestUpdate` (в пределах 1-2 секунд)
                     if (Math.abs(latestTime - nowTime) < 2000) {
@@ -174,7 +174,7 @@ export default {
 
                         const tgMessage = `${resultText}\nВаш последний выбор: ${choiceRu}\n\n📊 <b>Финальная статистика из Notion:</b>\nИгр: ${total}\nПобед: ${wins}\nПоражений: ${losses}\nНичьих: ${draws}`;
 
-                        console.log("[Timer 30s] Sending to Telegram...");
+                        console.log("[Timer 15s] Sending to Telegram...");
                         const tgRes = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
@@ -182,12 +182,12 @@ export default {
                         });
 
                         const tgText = await tgRes.text();
-                        console.log(`[Timer 30s] Telegram response: ${tgRes.status} ${tgText}`);
+                        console.log(`[Timer 15s] Telegram response: ${tgRes.status} ${tgText}`);
                     } else {
-                        console.log("[Timer 30s] Skipping Telegram send, another game was played after this one.");
+                        console.log("[Timer 15s] Skipping Telegram send, another game was played after this one.");
                     }
                 } else {
-                    console.log("[Timer 30s] Failed to fetch from Notion:", await getResponse.text());
+                    console.log("[Timer 15s] Failed to fetch from Notion:", await getResponse.text());
                 }
             })());
 
